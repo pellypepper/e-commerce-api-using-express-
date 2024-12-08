@@ -42,6 +42,8 @@ This is a RESTful API built with Node.js, Express, and PostgreSQL. It supports u
 bash
 
 npm install
+npm install express
+
 
 
 3 Create a .env file in the root directory with the following variables:
