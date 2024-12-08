@@ -141,35 +141,12 @@ app.get('/product', async (req, res) => {
   })
 
 
-// Get product by ID
-app.get('/product/:productId', async (req, res) => {
-    const id = req.params.productId;
-    if(isNaN(id)){
-        res.status(400).json({message: 'Please provide a product id'});
-    }
-     try {
-        const result = await pool.query('SELECT * FROM "products" WHERE id = $1', [id]);
-        const product = result.rows[0];
-         if(product){
-        
-            res.status(200).json(product);
-         } else {
-            res.status(404).json({ message: 'Product not found' });
-         }
-     } catch (err) {
-        console.error(err);
-        res.status(500).json({ message: 'Internal server error' });
-     }
-   
-  })
-
-
 // Get products by category
 app.get('/product/category', async (req, res) => {
     const categoryId = req.query.category;
   
   
-    if (!categoryId) {
+    if (!categoryId || isNaN(categoryId)) {
         return res.status(400).json({ message: 'Please provide a category ID' });
     }
   
@@ -189,6 +166,31 @@ app.get('/product/category', async (req, res) => {
         return res.status(500).json({ message: 'Internal server error' });
     }
   })
+
+
+// Get product by ID
+app.get('/product/:productId', async (req, res) => {
+    const id = req.params.productId;
+    if(isNaN(id)){
+       return res.status(400).json({message: 'Please provide a product id'});
+    }
+     try {
+        const result = await pool.query('SELECT * FROM "products" WHERE id = $1', [id]);
+        const product = result.rows[0];
+         if(product){
+        
+          return  res.status(200).json(product);
+         } else {
+           return res.status(404).json({ message: 'Product not found' });
+         }
+     } catch (err) {
+        console.error(err);
+        return res.status(500).json({ message: 'Internal server error' });
+     }
+   
+  })
+
+
   
 //Get all users
 app.get('/users', async (req, res) => {
@@ -228,8 +230,8 @@ app.get('/users/:userId', async (req, res) => {
  app.put('/users/:userId', async (req, res) => {
     const userId = req.params.userId;
     const {username, email} = req.body;
-    if(!userId){
-        res.status(400).json({message: 'Please provide a user id'});
+    if(!userId || !username || !email){
+        res.status(400).json({message: 'Please provide a user id ,username and email'});
     }
     try {
         const result = await pool.query('UPDATE "user" SET username = $1, email = $2 WHERE id = $3 RETURNING *', [username, email, userId]);
@@ -271,9 +273,9 @@ app.get('/users/:userId', async (req, res) => {
     const id  = req.params.cartId;
     const { product_id, quantity } = req.body;
   
-    // if ( !product_id || !quantity) {
-    //     return res.status(400).json({ message: 'Please provide productId and quantity' });
-    // }
+    if ( !product_id || !quantity) {
+        return res.status(400).json({ message: 'Please provide productId and quantity' });
+    }
   
     try {
         // Check if the cart exists
@@ -319,7 +321,7 @@ app.get('/users/:userId', async (req, res) => {
         const result = await pool.query(`
             SELECT ci.*, p.name, p.price 
             FROM "cart_items" ci
-            JOIN "products" p ON ci.product_id = p.id
+            LEFT JOIN "products" p ON ci.product_id = p.id
             WHERE ci.cart_id = $1
         `, [cartId]);
   
@@ -362,7 +364,7 @@ app.post('/cart/:cartId/checkout', authenticate, async (req, res) => {
         const result = await pool.query(`
             SELECT ci.product_id, ci.quantity, p.price 
             FROM "cart_items" ci
-            JOIN "products" p ON ci.product_id = p.id
+            LEFT JOIN "products" p ON ci.product_id = p.id
             WHERE ci.cart_id = $1
         `, [cartId]);
   
@@ -390,7 +392,7 @@ app.post('/cart/:cartId/checkout', authenticate, async (req, res) => {
   
         //insert new order into order_items table
         for (const item of cartItems) {
-            await client.query(`
+            await pool.query(`
                 INSERT INTO "order_items" (order_id, product_id, quantity, price)
                 VALUES ($1, $2, $3, $4)
             `, [order.id, item.product_id, item.quantity, item.price]);
